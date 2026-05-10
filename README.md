@@ -1,1 +1,1 @@
-cnn lstm# Tejumama_Image-Captioning
+# Tejumama_Image-Captioning

@@ -1,0 +1,11 @@
+data/seg_pred/
+data/seg_test/
+data/seg_train/
+*.npy
+*.h5
+__pycache__/
+.ipynb_checkpoints/
+SPEC.md
+RENCANA.md
+.venv
+venv
