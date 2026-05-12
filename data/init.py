@@ -1,5 +1,5 @@
-import kagglehub
+from download_intel import download as download_intel
+from download_flickr import download as download_flickr
 
-path = kagglehub.dataset_download("puneet6060/intel-image-classification")
-
-print("Path to dataset files:", path)
+download_intel()
+download_flickr()
