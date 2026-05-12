@@ -19,7 +19,8 @@ def loadBatch(image_paths, target_size=(224, 224)):
     return np.stack([loadImage(p, target_size) for p in image_paths], axis=0)
 
 
-# semua images di-forward ke encoder, features disimpan ke .npy
+# semua images di-forward ke encoder, 
+# returns features, disave ke .npy
 def extractFeatures(
         image_paths,
         encoder,
@@ -37,6 +38,15 @@ def extractFeatures(
         os.makedirs(output_dir, exist_ok=True)
     np.save(output_path, features)
     return features
+
+# build InceptionV3 encoder frozen
+def buildEncoder(input_size=(299, 299)):
+    from tensorflow.keras.applications import InceptionV3
+    
+    model = InceptionV3(include_top=False, weights='imagenet', pooling='avg', input_shape=(*input_size, 3))
+    model.trainable = False
+    
+    return model
 
 
 # scan folder dataset jadi (image_paths, labels, class_names)
