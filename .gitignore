@@ -1,8 +1,11 @@
 data/seg_pred/
 data/seg_test/
 data/seg_train/
+data/flickr8k/
+*flickr8k*
 *.npy
 *.h5
+*.keras
 __pycache__/
 .ipynb_checkpoints/
 SPEC.md
