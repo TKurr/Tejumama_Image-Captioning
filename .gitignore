@@ -12,3 +12,4 @@ SPEC.md
 RENCANA.md
 .venv
 venv
+tests/
