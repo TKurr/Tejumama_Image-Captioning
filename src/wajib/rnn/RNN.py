@@ -4,9 +4,6 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 from shared.preprocessing import tokenizeCaption, padSequences
-
-
-
 class RNNCell:
     # 1 step RNN
     # h_t = tanh(x_t @ Wx + h_prev @ Wh + b)
@@ -29,8 +26,8 @@ class RNNCell:
         return np.tanh(x_t @ self.Wx + h_prev @ self.Wh + self.b)
 
 
-# Stack of RNNCell for multi-layer RNN
 class RNNScratch:
+    # Stack of RNNCell for multi-layer RNN
 
     def __init__(self):
         self.cells = []
@@ -70,16 +67,16 @@ class RNNScratch:
         return new_h
 
 
-# Build RNN Keras 
-# Input: CNN feature + token ids jadi distribusi vocab di tiap timestep
 def buildRNNKeras(vocab_size, embed_dim, hidden_dim, num_rnn_layers, cnn_feature_dim):
+    # Input: CNN feature + token ids jadi distribusi vocab di tiap timestep
+    
     cnn_input   = keras.Input(shape=(cnn_feature_dim,), name='cnn_feature')
     token_input = keras.Input(shape=(None,), dtype='int32', name='token_ids')
 
     projected = layers.Dense(embed_dim, name='cnn_proj')(cnn_input)
     projected = tf.expand_dims(projected, axis=1)
 
-    embedded  = layers.Embedding(vocab_size, embed_dim, name='embedding')(token_input)
+    embedded  = layers.Embedding(vocab_size, embed_dim, mask_zero=True, name='embedding')(token_input)
 
     x = tf.concat([projected, embedded], axis=1)
 
@@ -95,10 +92,12 @@ def buildRNNKeras(vocab_size, embed_dim, hidden_dim, num_rnn_layers, cnn_feature
 
 # ====================== Data Prep and Training ======================
 
-# Input: image features + captions 
+# Input: image features + captions
 # Output: numpy arrays (X_cnn, X_tokens, y)
 def trainRNNDataset(image_features, captions_dict, vocab, max_len):
-    X_cnn, X_tokens, Y = [], [], []
+    X_cnn = [] 
+    X_tokens = []
+    Y = []
 
     for img_name, caps in captions_dict.items():
         if img_name not in image_features:
@@ -107,6 +106,8 @@ def trainRNNDataset(image_features, captions_dict, vocab, max_len):
 
         for cap in caps:
             token_ids    = tokenizeCaption(cap, vocab, max_len)
+            
+            # Teacher Forcing
             input_tokens = [vocab['<start>']] + token_ids[:-1]
 
             X_cnn.append(feat)
