@@ -74,11 +74,11 @@ def buildRNNKeras(vocab_size, embed_dim, hidden_dim, num_rnn_layers, cnn_feature
     token_input = keras.Input(shape=(None,), dtype='int32', name='token_ids')
 
     projected = layers.Dense(embed_dim, name='cnn_proj')(cnn_input)
-    projected = tf.expand_dims(projected, axis=1)
+    projected = keras.ops.expand_dims(projected, axis=1)
 
-    embedded  = layers.Embedding(vocab_size, embed_dim, mask_zero=True, name='embedding')(token_input)
+    embedded  = layers.Embedding(vocab_size, embed_dim, name='embedding')(token_input)
 
-    x = tf.concat([projected, embedded], axis=1)
+    x = keras.ops.concatenate([projected, embedded], axis=1)
 
     for i in range(num_rnn_layers):
         x = layers.SimpleRNN(hidden_dim, return_sequences=True, name=f'rnn_{i}')(x)
