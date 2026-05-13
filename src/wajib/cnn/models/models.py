@@ -6,7 +6,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from sklearn.metrics import accuracy_score, f1_score
 
-from cnn.layers.layers import (
+from ..layers.layers import (
     AveragePooling2D, Conv2D, Dense, Flatten,
     GlobalAveragePooling2D, GlobalMaxPooling2D,
     LocallyConnected2D, MaxPooling2D,

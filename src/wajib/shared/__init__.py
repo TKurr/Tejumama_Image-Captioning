@@ -8,5 +8,5 @@ from .preprocessing import (
     loadVocabulary,
     loadFlickr8kCaptions,
 )
-from .decoder import greedyDecode, computeBLEU4, computeCorpusBLEU4, computeMETEOR
+from .decoder import greedyDecode
 

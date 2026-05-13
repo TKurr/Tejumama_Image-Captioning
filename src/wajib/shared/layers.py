@@ -1,6 +1,6 @@
 
 import numpy as np
-from cnn.layers import applyActivation
+from ..cnn.layers import applyActivation
 
 # token-id => dense vector
 class EmbeddingLayer:

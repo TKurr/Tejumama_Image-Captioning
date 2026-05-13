@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from shared.preprocessing import tokenizeCaption, padSequences
+from ..shared.preprocessing import tokenizeCaption, padSequences
 class RNNCell:
     # 1 step RNN
     # h_t = tanh(x_t @ Wx + h_prev @ Wh + b)

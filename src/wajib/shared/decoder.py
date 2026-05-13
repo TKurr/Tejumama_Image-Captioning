@@ -1,11 +1,11 @@
 import numpy as np
-from shared.preprocessing import END
+from .preprocessing import END
 
-# CNN feature + scratch model => list of words (greedy)
+
+# CNN feature + scratch model -> list of words (greedy)
 def greedyDecode(rnn_scratch, proj_dense, embed_layer, out_dense, cnn_feature, vocab, max_len=30):
     id2word = {v: k for k, v in vocab.items()}
 
-    # timestep t=-1: inject CNN feature
     x = proj_dense.forward(cnn_feature)
     h = [np.zeros(cell.hidden_dim) for cell in rnn_scratch.cells]
     h = rnn_scratch.forwardStep(x, h)

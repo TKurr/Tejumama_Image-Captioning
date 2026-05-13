@@ -2,6 +2,7 @@ data/seg_pred/
 data/seg_test/
 data/seg_train/
 data/flickr8k/
+seg_*
 *flickr8k*
 *.npy
 *.h5

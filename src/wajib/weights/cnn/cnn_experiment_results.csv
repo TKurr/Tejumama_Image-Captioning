@@ -1,0 +1,2 @@
+name,num_conv_layers,num_filters,filter_sizes,pooling_type,accuracy,macro_f1,params,weights_path
+cnn_conv_L2_F32-64_K3-3_Pmax,2,"[32, 64]","[3, 3]",max,0.7863333333333333,0.7870366191653907,2117446,/home/fozzy/projects/Tejumama_Image-Captioning/src/wajib/weights/cnn/cnn_conv_L2_F32-64_K3-3_Pmax.keras
