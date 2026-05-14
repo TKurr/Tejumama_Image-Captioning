@@ -5,8 +5,7 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent
 
 def download():
-    src = Path(kagglehub.dataset_download("adityajn105/flickr8k"))
-    
+    src = Path(kagglehub.dataset_download("adityajn105/flickr8k"))  
     dst = DATA_DIR / 'flickr8k'
     if dst.exists() or dst.is_symlink():
         print(f"skip flickr8k (already exists)")
