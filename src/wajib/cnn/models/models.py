@@ -30,26 +30,25 @@ def CNN(
     filters = expandConfigList(num_filters, num_conv_layers)
     kernels = expandConfigList(filter_sizes, num_conv_layers)
 
-    model = keras.Sequential(name=modelName(num_conv_layers, filters, kernels, pooling_type, use_locally_connected))
+    model = keras.Sequential()
     model.add(layers.Input(shape=input_shape))
 
     for idx in range(num_conv_layers):
-        if use_locally_connected:
-            lc = getattr(layers, 'LocallyConnected2D', None)
-            if lc is None:
-                raise ImportError("tf.keras.layers.LocallyConnected2D is not available.")
-            model.add(lc(filters[idx], kernels[idx], activation='relu'))
-        else:
-            model.add(layers.Conv2D(filters[idx], kernels[idx], padding='same', activation='relu'))
+        model.add(layers.Conv2D(filters[idx], kernels[idx], padding='same', activation='relu'))
+        model.add(layers.BatchNormalization()) 
 
         if pooling_type == 'max':
             model.add(layers.MaxPooling2D(pool_size=(2, 2)))
         else:
             model.add(layers.AveragePooling2D(pool_size=(2, 2)))
+        
+        model.add(layers.Dropout(0.2)) 
 
     model.add(layers.Flatten())
-    model.add(layers.Dense(128, activation='relu'))
+    model.add(layers.Dense(256, activation='relu')) 
+    model.add(layers.Dropout(0.5)) 
     model.add(layers.Dense(num_classes, activation='softmax'))
+    
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
 
@@ -96,25 +95,61 @@ def runExperiments(
     os.makedirs(weights_dir, exist_ok=True)
     results = []
 
-    for num_conv_layers, num_filters, filter_sizes, pooling_type in product(
-        [2], [[32, 64]], [[3, 3]], ['max']
-    ):
+    variations = product(
+        [2, 3],                      # num_conv_layers
+        [[32, 64], [64, 128]],       # num_filters
+        [[3, 3], [5, 5]],            # filter_sizes
+        ['max', 'average']           # pooling_type
+    )
+
+    for i, (num_conv_layers, num_filters, filter_sizes, pooling_type) in enumerate(variations):
         filters = expandConfigList(num_filters, num_conv_layers)
         kernels = expandConfigList(filter_sizes, num_conv_layers)
         name = modelName(num_conv_layers, filters, kernels, pooling_type, False)
         save_path = os.path.join(weights_dir, f'{name}.keras')
 
-        model = CNN(input_shape=input_shape, num_classes=num_classes, num_conv_layers=num_conv_layers,
-                    num_filters=filters, filter_sizes=kernels, pooling_type=pooling_type)
-        history = trainModel(model, X_train, y_train, X_val, y_val, epochs=epochs,
-                             batch_size=batch_size, save_path=save_path)
+        # Biar jelas aja
+        print("\n" + "="*50)
+        print(f"EXPERIMENT #{i+1}: {name}")
+        print("-" * 50)
+        print(f"Layers  : {num_conv_layers}")
+        print(f"Filters : {filters}")
+        print(f"Kernels : {kernels}")
+        print(f"Pooling : {pooling_type}")
+        print(f"Batch   : {batch_size} | Epochs: {epochs}")
+        print("="*50 + "\n")
+
+        model = CNN(
+            input_shape=input_shape, 
+            num_classes=num_classes, 
+            num_conv_layers=num_conv_layers,
+            num_filters=filters, 
+            filter_sizes=kernels, 
+            pooling_type=pooling_type
+        )
+        
+        history = trainModel(
+            model, X_train, y_train, X_val, y_val, 
+            epochs=epochs, batch_size=batch_size, 
+            save_path=save_path
+        )
+        
         metrics = evaluateKeras(model, X_test, y_test)
+        
         results.append({
-            'name': name, 'weights_path': save_path,
-            'config': {'num_conv_layers': num_conv_layers, 'num_filters': filters,
-                       'filter_sizes': kernels, 'pooling_type': pooling_type},
-            'history': history, 'metrics': metrics, 'params': int(model.count_params()),
+            'name': name, 
+            'weights_path': save_path,
+            'config': {
+                'num_conv_layers': num_conv_layers, 
+                'num_filters': filters,
+                'filter_sizes': kernels, 
+                'pooling_type': pooling_type
+            },
+            'history': history, 
+            'metrics': metrics, 
+            'params': int(model.count_params()),
         })
+        
         with open(os.path.join(weights_dir, 'cnn_experiment_results.json'), 'w') as f:
             json.dump(results, f, indent=2)
 
