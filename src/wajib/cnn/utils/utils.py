@@ -3,24 +3,17 @@ import numpy as np
 from PIL import Image
 from sklearn.metrics import f1_score
 
-
-# image path jadi numpy array (H, W, 3), normalized 0-1
 def loadImage(image_path, target_size=(224, 224)):
     with Image.open(image_path) as img:
         img = img.convert('RGB')
         img = img.resize((target_size[1], target_size[0]))
         return np.asarray(img, dtype=np.float32) / 255.0
 
-
-# list of image paths jadi ndarray (N, H, W, 3)
 def loadBatch(image_paths, target_size=(224, 224)):
     if not image_paths:
         return np.empty((0, target_size[0], target_size[1], 3), dtype=np.float32)
     return np.stack([loadImage(p, target_size) for p in image_paths], axis=0)
 
-
-# semua images di-forward ke encoder, 
-# returns features, disave ke .npy
 def extractFeatures(
         image_paths,
         encoder,
@@ -39,7 +32,6 @@ def extractFeatures(
     np.save(output_path, features)
     return features
 
-# build InceptionV3 encoder frozen
 def buildEncoder(input_size=(299, 299)):
     from tensorflow.keras.applications import InceptionV3
     
@@ -48,8 +40,6 @@ def buildEncoder(input_size=(299, 299)):
     
     return model
 
-
-# scan folder dataset jadi (image_paths, labels, class_names)
 def loadDataset(dataset_dir, class_names=None):
     valid_exts = ('.jpg', '.jpeg', '.png', '.bmp', '.webp')
     if class_names is None:
@@ -65,6 +55,5 @@ def loadDataset(dataset_dir, class_names=None):
                 labels.append(label)
     return image_paths, labels, class_names
 
-# macro F1 score dari y_true dan y_pred
 def macroF1(y_true, y_pred):
     return float(f1_score(y_true, y_pred, average='macro'))
