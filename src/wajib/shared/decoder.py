@@ -7,20 +7,18 @@ def greedyDecode(rnn_scratch, proj_dense, embed_layer, out_dense, cnn_feature, v
     id2word = {v: k for k, v in vocab.items()}
     END_TOKEN = vocab.get('<end>', 2) 
 
-    states = [(np.zeros(cell.hidden_dim), np.zeros(cell.hidden_dim)) for cell in rnn_scratch.cells]
-
+    h_states = [np.zeros(cell.hiddenDim) for cell in rnn_scratch.cells]
+    c_states = [np.zeros(cell.hiddenDim) for cell in rnn_scratch.cells]
     x_img = proj_dense.forward(cnn_feature)
-    states = rnn_scratch.forwardStep(x_img, states)
+    h_states, c_states = rnn_scratch.forwardStep(x_img, h_states, c_states)
 
     words = []
     token = vocab['<start>']
 
     for _ in range(max_len):
         x_t = embed_layer.forward(token)
-        states = rnn_scratch.forwardStep(x_t, states)
-        
-        h_final = states[-1][0] 
-        
+        h_states, c_states = rnn_scratch.forwardStep(x_t, h_states, c_states)
+        h_final = h_states[-1] 
         logits = out_dense.forward(h_final)
         token = int(np.argmax(logits))
         

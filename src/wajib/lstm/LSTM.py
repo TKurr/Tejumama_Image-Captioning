@@ -123,23 +123,22 @@ def buildLSTMKeras(
 
 
 def trainLSTMDataset(imageFeatures, captionsDict, vocab, maxLen):
-    xCnn = []
-    xTokens = []
-    y = []
+    xCnn, xTokens, y = [], [], []
 
     for imgName, caps in captionsDict.items():
-        if imgName not in imageFeatures:
-            continue
+        if imgName not in imageFeatures: continue
         feat = imageFeatures[imgName]
         for cap in caps:
-            tokenIds = tokenizeCaption(cap, vocab, maxLen)
-            inputTokens = [vocab['<start>']] + tokenIds[:-1]
+            tokenIds = tokenizeCaption(cap, vocab, maxLen) 
+            full_tokens = [vocab['<start>']] + tokenIds
+            input_seq = full_tokens[:-1]
+            target_seq = full_tokens[1:]
+            target_with_cnn_offset = [0] + target_seq 
             xCnn.append(feat)
-            xTokens.append(padSequences([inputTokens], maxLen)[0])
-            y.append(padSequences([tokenIds], maxLen + 1)[0])
+            xTokens.append(padSequences([input_seq], maxLen)[0])
+            y.append(padSequences([target_with_cnn_offset], maxLen + 1)[0]) # Panjang 31
 
     return np.array(xCnn), np.array(xTokens), np.array(y)
-
 
 def trainLSTMKeras(
     model,
