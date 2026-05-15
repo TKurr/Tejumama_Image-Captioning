@@ -83,7 +83,7 @@ class RNNScratch:
         return np.array(outputs) if return_sequences else states[-1][0]
 
 
-def buildRNNKeras(vocab_size, embed_dim, hidden_dim, num_rnn_layers, cnn_feature_dim, rnn_type='lstm'):
+def buildRNNKeras(vocab_size, embed_dim, hidden_dim, num_rnn_layers, cnn_feature_dim, rnn_type='rnn'):
     cnn_input   = keras.Input(shape=(cnn_feature_dim,), name='cnn_feature')
     token_input = keras.Input(shape=(None,), dtype='int32', name='token_ids')
 
@@ -126,12 +126,9 @@ def trainRNNDataset(image_features, captions_dict, vocab, max_len):
             
             input_tokens = [vocab['<start>']] + token_ids[:-1]
             
-            target_tokens = token_ids
-            target_with_cnn_offset = [0] + target_tokens
-
             X_cnn.append(feat)
             X_tokens.append(padSequences([input_tokens], max_len)[0])
-            Y.append(padSequences([target_with_cnn_offset], max_len + 1)[0]) # Sekarang 31
+            Y.append(padSequences([[vocab['<start>']] + token_ids], max_len + 1)[0])
 
     return np.array(X_cnn), np.array(X_tokens), np.array(Y)
 
