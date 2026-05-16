@@ -3,7 +3,7 @@
 Proyek ini membuat model image captioning berbasis CNN + RNN/LSTM untuk menghasilkan deskripsi teks dari gambar. Repositori berisi pipeline pelatihan model, preprocessing data, serta notebook eksperimen.
 
 ## Fitur
-- Ekstraksi fitur gambar dengan CNN.
+- Ekstraksi fitur gambar dengan CNN (InceptionV3, from scratch).
 - Pelatihan model RNN dan LSTM untuk sequence caption.
 - Pipeline captioning end-to-end.
 - Notebook analisis kualitatif hasil caption.
@@ -22,23 +22,46 @@ src/wajib/           Implementasi model, layer, dan utilitas
 - pip
 
 ## Instalasi
-1. Buat dan aktifkan virtual environment.
-2. Install dependensi:
 
-```
+**1. Buat dan aktifkan virtual environment, lalu install dependensi:**
+
+```bash
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+**2. Daftarkan venv ke Jupyter** (supaya kernel muncul di notebook):
+
+```bash
+python -m ipykernel install --user --name=venv --display-name "Python (venv)"
+```
+
 ## Dataset
-Proyek menggunakan dataset Flickr8k. Script unduh tersedia di:
 
-- `data/download_flickr.py`
-- `data/extract_flickr_features.py`
+Proyek menggunakan dua dataset: **Flickr8k** (image captioning) dan **Intel Image Classification** (CNN classification).
 
-Contoh alur singkat:
+**3. Download kedua dataset** sekaligus via `init.py`:
+
+Butuh akun Kaggle — `kagglehub` akan minta login otomatis jika belum ada credentials.
+
+```bash
+cd data && python init.py && cd ..
+```
+
+`init.py` mendownload via `kagglehub` dan membuat symlink di `data/`:
 
 ```
-python data/download_flickr.py
+data/
+├── seg_train/   # Intel Image Classification — training set (~14k gambar, 6 kelas)
+├── seg_test/    # Intel Image Classification — test set (~3k gambar)
+├── seg_pred/    # Intel Image Classification — unlabeled prediction set
+└── flickr8k/    # Flickr8k — Images/ + captions.txt (8092 gambar)
+```
+
+**5. Ekstrak fitur Flickr8k** pakai InceptionV3 (cukup sekali, jalankan dari root proyek):
+
+```bash
 python data/extract_flickr_features.py
 ```
 
@@ -58,8 +81,7 @@ Jalankan notebook secara berurutan untuk mereplikasi hasil.
 Beberapa output disimpan di:
 
 - `src/wajib/weights/` *(Catatan: Sebagian besar output model berukuran besar tidak diupload ke GitHub. Silakan cek [Google Drive Berikut](https://drive.google.com/drive/folders/1iLIM7VGyiNLfDwnhBCbBG3Q0j3QmBQaJ) untuk mengunduh bobot selengkapnya. Beberapa model/gambar tetap disertakan di repositori ini).*
-2 
+
 ## Catatan
 - Pastikan dataset sudah terunduh sebelum menjalankan notebook pelatihan.
 - Waktu pelatihan tergantung GPU/CPU yang digunakan. *disarankan pakai GPU*
-
