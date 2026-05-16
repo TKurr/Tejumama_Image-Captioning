@@ -14,3 +14,5 @@ RENCANA.md
 .venv
 venv
 tests/
+*.tar.gz
+*.deb

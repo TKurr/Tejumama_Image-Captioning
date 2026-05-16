@@ -109,15 +109,20 @@ def buildLSTMKeras(
 ) -> keras.Model:
     cnnInput = keras.Input(shape=(cnnFeatureDim,), name='cnn_feature')
     tokenInput = keras.Input(shape=(None,), dtype='int32', name='token_ids')
-    projected = layers.Dense(embedDim, name='cnn_proj')(cnnInput)
+    projected = layers.Dense(embedDim, activation='relu', name='cnn_proj')(cnnInput)
     projected = keras.ops.expand_dims(projected, axis=1)
     embedded = layers.Embedding(vocabSize, embedDim, name='embedding')(tokenInput)
     x = keras.ops.concatenate([projected, embedded], axis=1)
     for i in range(numLstmLayers):
-        x = layers.LSTM(hiddenDim, return_sequences=True, name=f'lstm_{i}')(x)
-    output = layers.Dense(vocabSize, activation='softmax', name='output')(x)
+        x = layers.LSTM(hiddenDim, return_sequences=True, implementation=1, name=f'lstm_{i}')(x)
+        if i < numLstmLayers - 1:
+            x = layers.Dropout(0.3, name=f'dropout_{i}')(x)
+    output = layers.Dense(vocabSize, name='output')(x)
     model = keras.Model(inputs=[cnnInput, tokenInput], outputs=output)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy')
+    model.compile(
+        optimizer='adam',
+        loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True, ignore_class=0),
+    )
     
     return model
 
@@ -139,7 +144,6 @@ def trainLSTMDataset(imageFeatures, captionsDict, vocab, maxLen):
             y.append(padSequences([tokenIds], maxLen + 1)[0])
 
     return np.array(xCnn), np.array(xTokens), np.array(y)
-
 
 def trainLSTMKeras(
     model,

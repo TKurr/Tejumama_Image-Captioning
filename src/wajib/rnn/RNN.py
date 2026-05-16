@@ -9,7 +9,7 @@ class RNNCell:
         self.Wx = None
         self.Wh = None
         self.b  = None
-        self.mode = mode # 'rnn' atau 'lstm'
+        self.mode = mode 
 
     def loadWeights(self, keras_layer):
         w = keras_layer.get_weights()
@@ -17,39 +17,32 @@ class RNNCell:
         self.Wh = w[1]
         self.b  = w[2]
         self.hidden_dim = self.Wh.shape[0]
-        # Deteksi otomatis tipe layer dari Keras
         if 'lstm' in keras_layer.name.lower():
             self.mode = 'lstm'
 
     def forward(self, x_t, h_prev, c_prev=None):
         if self.mode == 'rnn':
             h_next = np.tanh(x_t @ self.Wx + h_prev @ self.Wh + self.b)
-            return h_next, None # Tetap return tuple biar konsisten
+            return h_next, None 
         
-        else: # Logika LSTM
-            # Hitung semua gate sekaligus (dimensi akan jadi 4 * hidden_dim)
+        else: 
             z = x_t @ self.Wx + h_prev @ self.Wh + self.b
             
-            # Potong jadi 4 bagian: input, forget, cell_gate, output
             i, f, g, o = np.split(z, 4, axis=-1)
             
-            # Terapkan aktivasi
-            i = 1 / (1 + np.exp(-i)) # sigmoid
-            f = 1 / (1 + np.exp(-f)) # sigmoid
+            i = 1 / (1 + np.exp(-i)) 
+            f = 1 / (1 + np.exp(-f)) 
             g = np.tanh(g)
-            o = 1 / (1 + np.exp(-o)) # sigmoid
+            o = 1 / (1 + np.exp(-o)) 
             
             c_next = f * c_prev + i * g
             h_next = o * np.tanh(c_next)
             return h_next, c_next
 
 class RNNScratch:
-    # Stack of RNNCell for multi-layer RNN
-
     def __init__(self):
         self.cells = []
 
-    # load dari list keras SimpleRNN layers, satu cell per layer
     def loadWeights(self, keras_layers):
         for layer in keras_layers:
             cell = RNNCell()
@@ -86,31 +79,27 @@ class RNNScratch:
 def buildRNNKeras(vocab_size, embed_dim, hidden_dim, num_rnn_layers, cnn_feature_dim, rnn_type='rnn'):
     cnn_input   = keras.Input(shape=(cnn_feature_dim,), name='cnn_feature')
     token_input = keras.Input(shape=(None,), dtype='int32', name='token_ids')
-
     projected = layers.Dense(embed_dim, activation='relu', name='cnn_proj')(cnn_input)
     projected = layers.Reshape((1, embed_dim))(projected)
-
     embedded  = layers.Embedding(vocab_size, embed_dim, mask_zero=True, name='embedding')(token_input)
 
     x = layers.Concatenate(axis=1)([projected, embedded])
 
     for i in range(num_rnn_layers):
         if rnn_type.lower() == 'lstm':
-            x = layers.LSTM(hidden_dim, return_sequences=True, name=f'lstm_{i}')(x)
+            x = layers.LSTM(hidden_dim, return_sequences=True, implementation=1, name=f'lstm_{i}')(x)
         else:
             x = layers.SimpleRNN(hidden_dim, return_sequences=True, name=f'rnn_{i}')(x)
         x = layers.Dropout(0.3)(x)
 
-    output = layers.Dense(vocab_size, activation='softmax', name='output')(x)
-
+    output = layers.Dense(vocab_size, name='output')(x)  
     model = keras.Model(inputs=[cnn_input, token_input], outputs=output)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy')
+    model.compile(
+        optimizer='adam',
+        loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True, ignore_class=0),
+    )
     return model
 
-# ====================== Data Prep and Training ======================
-
-# Input: image features + captions
-# Output: numpy arrays (X_cnn, X_tokens, y)
 def trainRNNDataset(image_features, captions_dict, vocab, max_len):
     X_cnn = [] 
     X_tokens = []
@@ -128,13 +117,10 @@ def trainRNNDataset(image_features, captions_dict, vocab, max_len):
             
             X_cnn.append(feat)
             X_tokens.append(padSequences([input_tokens], max_len)[0])
-            Y.append(padSequences([[vocab['<start>']] + token_ids], max_len + 1)[0])
+            Y.append(padSequences([token_ids], max_len + 1)[0])
 
     return np.array(X_cnn), np.array(X_tokens), np.array(Y)
 
-# Actual Training
-# Input: arrays from trainRNNDataset + Keras model
-# Output: train hist (loss per epoch)
 def trainRNNKeras(
         model,
         X_cnn_train, X_tokens_train, y_train,
