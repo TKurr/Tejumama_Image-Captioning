@@ -2,6 +2,7 @@ import numpy as np
 import json
 import os
 from itertools import product
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from sklearn.metrics import accuracy_score, f1_score
@@ -13,6 +14,99 @@ from ..layers.layers import (
 )
 
 
+@keras.utils.register_keras_serializable(package='wajib')
+class KerasLocallyConnected2D(layers.Layer):
+    def __init__(
+            self,
+            filters,
+            kernel_size,
+            strides=(1, 1),
+            padding='valid',
+            activation=None,
+            use_bias=True,
+            kernel_regularizer=None,
+            **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.filters = int(filters)
+        self.kernel_size = tuple(kernel_size) if isinstance(kernel_size, (list, tuple)) else (kernel_size, kernel_size)
+        self.kernel_size = tuple(int(v) for v in self.kernel_size)
+        self.strides = tuple(strides) if isinstance(strides, (list, tuple)) else (strides, strides)
+        self.strides = tuple(int(v) for v in self.strides)
+        self.padding = padding.lower()
+        self.activation = keras.activations.get(activation)
+        self.use_bias = use_bias
+        self.kernel_regularizer = keras.regularizers.get(kernel_regularizer)
+        self.out_h = None
+        self.out_w = None
+
+    def build(self, input_shape):
+        _, input_h, input_w, input_c = input_shape
+        if input_h is None or input_w is None or input_c is None:
+            raise ValueError("KerasLocallyConnected2D needs a fully defined input height, width, and channels.")
+        self.out_h, self.out_w, _ = self.compute_output_shape(input_shape)[1:]
+        patch_size = self.kernel_size[0] * self.kernel_size[1] * int(input_c)
+        self.kernel = self.add_weight(
+            name='kernel',
+            shape=(self.out_h * self.out_w, patch_size, self.filters),
+            initializer='glorot_uniform',
+            regularizer=self.kernel_regularizer,
+            trainable=True,
+        )
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.out_h * self.out_w, self.filters),
+                initializer='zeros',
+                trainable=True,
+            )
+        else:
+            self.bias = None
+        super().build(input_shape)
+
+    def compute_output_shape(self, input_shape):
+        _, input_h, input_w, _ = input_shape
+        k_h, k_w = self.kernel_size
+        s_h, s_w = self.strides
+        if self.padding == 'same':
+            out_h = int(np.ceil(input_h / s_h))
+            out_w = int(np.ceil(input_w / s_w))
+        elif self.padding == 'valid':
+            out_h = (input_h - k_h) // s_h + 1
+            out_w = (input_w - k_w) // s_w + 1
+        else:
+            raise ValueError(f"Unsupported padding: {self.padding}")
+        return (input_shape[0], out_h, out_w, self.filters)
+
+    def call(self, inputs):
+        patches = tf.image.extract_patches(
+            images=inputs,
+            sizes=[1, self.kernel_size[0], self.kernel_size[1], 1],
+            strides=[1, self.strides[0], self.strides[1], 1],
+            rates=[1, 1, 1, 1],
+            padding=self.padding.upper(),
+        )
+        patches = tf.reshape(patches, [tf.shape(inputs)[0], self.out_h * self.out_w, -1])
+        output = tf.einsum('bip,ipf->bif', patches, self.kernel)
+        if self.bias is not None:
+            output = output + self.bias
+        output = tf.reshape(output, [tf.shape(inputs)[0], self.out_h, self.out_w, self.filters])
+        return self.activation(output) if self.activation is not None else output
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'filters': self.filters,
+            'kernel_size': self.kernel_size,
+            'strides': self.strides,
+            'padding': self.padding,
+            'activation': keras.activations.serialize(self.activation),
+            'use_bias': self.use_bias,
+            'kernel_regularizer': keras.regularizers.serialize(self.kernel_regularizer),
+        })
+        return config
+
+
 def CNN(
         input_shape, 
         num_classes, 
@@ -20,7 +114,11 @@ def CNN(
         num_filters,
         filter_sizes,
         pooling_type,
-        use_locally_connected=False
+        use_locally_connected=False,
+        locally_connected_layers='all',
+        use_global_pooling=False,
+        l2_strength=0.0,
+        dense_units=256,
     ):
     if num_conv_layers < 1:
         raise ValueError("num_conv_layers must be at least 1.")
@@ -29,12 +127,32 @@ def CNN(
 
     filters = expandConfigList(num_filters, num_conv_layers)
     kernels = expandConfigList(filter_sizes, num_conv_layers)
+    kernel_regularizer = keras.regularizers.l2(l2_strength) if l2_strength else None
+
+    if use_locally_connected is True:
+        local_mode = locally_connected_layers
+    elif use_locally_connected in ('all', 'last', 'none'):
+        local_mode = use_locally_connected
+        use_locally_connected = local_mode != 'none'
+    else:
+        local_mode = 'none'
+
+    if local_mode not in ('all', 'last', 'none'):
+        raise ValueError("locally_connected_layers must be 'all', 'last', or 'none'.")
 
     model = keras.Sequential()
     model.add(layers.Input(shape=input_shape))
 
     for idx in range(num_conv_layers):
-        model.add(layers.Conv2D(filters[idx], kernels[idx], padding='same', activation='relu'))
+        is_local = use_locally_connected and (local_mode == 'all' or idx == num_conv_layers - 1)
+        conv_layer = KerasLocallyConnected2D if is_local else layers.Conv2D
+        model.add(conv_layer(
+            filters[idx],
+            kernels[idx],
+            padding='same',
+            activation='relu',
+            kernel_regularizer=kernel_regularizer,
+        ))
         model.add(layers.BatchNormalization()) 
 
         if pooling_type == 'max':
@@ -44,8 +162,11 @@ def CNN(
         
         model.add(layers.Dropout(0.2)) 
 
-    model.add(layers.Flatten())
-    model.add(layers.Dense(256, activation='relu')) 
+    if use_global_pooling:
+        model.add(layers.GlobalAveragePooling2D())
+    else:
+        model.add(layers.Flatten())
+    model.add(layers.Dense(dense_units, activation='relu', kernel_regularizer=kernel_regularizer)) 
     model.add(layers.Dropout(0.5)) 
     model.add(layers.Dense(num_classes, activation='softmax'))
     
@@ -201,7 +322,7 @@ def scratchFromKeras(keras_model):
         if name == 'Conv2D':
             layer = Conv2D()
             layer.loadWeights(keras_layer)
-        elif name == 'LocallyConnected2D':
+        elif name in ('LocallyConnected2D', 'KerasLocallyConnected2D'):
             layer = LocallyConnected2D()
             layer.loadWeights(keras_layer)
         elif name == 'MaxPooling2D':

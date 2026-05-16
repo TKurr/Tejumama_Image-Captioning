@@ -90,6 +90,7 @@ class LocallyConnected2D:
         self.activation = activation
         self.kernel_size = None
         self.strides = (1, 1)
+        self.padding = 'valid'
 
     def loadWeights(self, keras_layer):
         weights = keras_layer.get_weights()
@@ -99,12 +100,30 @@ class LocallyConnected2D:
         self.bias = np.asarray(weights[1]) if len(weights) > 1 else np.zeros((self.kernel.shape[0], self.kernel.shape[-1]))
         self.kernel_size = tuple(keras_layer.kernel_size)
         self.strides = tuple(keras_layer.strides)
+        self.padding = getattr(keras_layer, 'padding', self.padding).lower()
         self.activation = getattr(keras_layer.activation, '__name__', self.activation)
+
+    def padInput(self, x):
+        if self.padding == 'valid':
+            return x
+        if self.padding != 'same':
+            raise ValueError(f"Unsupported padding: {self.padding}")
+        h, w, _ = x.shape
+        k_h, k_w = self.kernel_size
+        s_h, s_w = self.strides
+        out_h = int(np.ceil(h / s_h))
+        out_w = int(np.ceil(w / s_w))
+        pad_h = max((out_h - 1) * s_h + k_h - h, 0)
+        pad_w = max((out_w - 1) * s_w + k_w - w, 0)
+        pad_top = pad_h // 2
+        pad_left = pad_w // 2
+        return np.pad(x, ((pad_top, pad_h - pad_top), (pad_left, pad_w - pad_left), (0, 0)), mode='constant')
 
     def forward(self, x):
         if self.kernel is None:
             raise ValueError("LocallyConnected2D weights are not loaded.")
-        h, w, c_in = x.shape
+        x_pad = self.padInput(x)
+        h, w, c_in = x_pad.shape
         k_h, k_w = self.kernel_size
         s_h, s_w = self.strides
         out_h = (h - k_h) // s_h + 1
@@ -114,7 +133,7 @@ class LocallyConnected2D:
         for idx in range(out_h * out_w):
             i, j = divmod(idx, out_w)
             row, col = i * s_h, j * s_w
-            patch = x[row:row + k_h, col:col + k_w, :].reshape(-1)
+            patch = x_pad[row:row + k_h, col:col + k_w, :].reshape(-1)
             output[i, j, :] = patch @ self.kernel[idx] + self.bias[idx]
         return applyActivation(output, self.activation)
 
