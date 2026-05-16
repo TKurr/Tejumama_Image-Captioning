@@ -96,10 +96,10 @@ def runExperiments(
     results = []
 
     variations = product(
-        [2, 3],                      # num_conv_layers
-        [[32, 64], [64, 128]],       # num_filters
-        [[3, 3], [5, 5]],            # filter_sizes
-        ['max', 'average']           # pooling_type
+        [2, 3],                      
+        [[32, 64], [64, 128]],       
+        [[3, 3], [5, 5]],           
+        ['max', 'average']           
     )
 
     for i, (num_conv_layers, num_filters, filter_sizes, pooling_type) in enumerate(variations):
